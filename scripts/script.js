@@ -9,6 +9,7 @@ class Turno{
         this.capacidad = capacidad
         this.actividad = actividad.nombre
         this.ID = db.count(this)+1
+        this.inscriptos = []
     }
 
     guardar(){
@@ -68,7 +69,7 @@ class Actividad{
     }
 }
 
-//Simular una Base de Datos para poder "guardar datos"
+//Simular una Base de Datos
 class DB{
     constructor(){
         this.turnos = []
