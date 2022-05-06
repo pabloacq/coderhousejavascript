@@ -7,10 +7,13 @@ class Turno{
         this.capacidad = capacidad
         this.actividad = actividad.nombre
         this.ID = db.count(this)+1
+        this.inscriptos = []
     }
+
     guardar(){
         db.guardar(this)
     }
+
     registrar(persona)
     {
         if (this.capacidad > 0)
@@ -40,12 +43,15 @@ class Actividad{
         this.nombre = nombre
         this.duracion = duracion
     }
+
     guardar(){
         db.guardar(this)
     }
+
     mostrarTurnos(){
         return db.selectTurnosXActividad(this.nombre)
     }
+
     inscribir(persona, hora, dia){
         if (this.confirmarRequisitos()){
             let turnos = db.selectTurnosXActividad(this.nombre)
@@ -59,7 +65,7 @@ class Actividad{
     }
 }
 
-//Simular una Base de Datos para poder "guardar datos"
+//Simular una Base de Datos
 class DB{
     constructor(){
         this.turnos = []
@@ -107,29 +113,39 @@ class DB{
                 return []
         }
     }
+
     selectTurnosXActividad(actividad){
         return this.turnos.filter(turno => turno.actividad == actividad);
     }
+
 }
 
 
 //main
+
+    //Declarar la Base de datos como global
     const db = new DB()
     init()
+
     let nombre = prompt("Bienvenido!\nIngrese su nombre y apellido")
     let edad = prompt("Ingrese su edad")
     let dni = prompt("Ingrese su DNI")
+
     let persona = new Persona(nombre, edad, dni)
     persona.guardar()
+
+
     let actividades = db.selectAll("Actividad")
     let actividadesString = ""
     for (i=0;i<actividades.length;i++)
     {
         actividadesString += actividades[i].nombre +"\n"
     }
+
     let actividadSeleccionada = prompt(`Seleccione una actividad \n\nActividades Disponibles: \n${actividadesString}`)
     let actividad =  actividades.filter(actividad => actividad.nombre == actividadSeleccionada)[0];
     console.log(actividad)
+
     let turnos = actividad.mostrarTurnos()
     let dias =[], diasString =""
     for (i=0;i<turnos.length;i++){
@@ -140,7 +156,9 @@ class DB{
             diasString += dia + "\n"
          }
     }
+
     let diaSeleccionado = prompt(`Seleccione un dia \n\nDias Disponibles: \n${diasString}`)
+
     let horarios = turnos.filter(turno => turno.dia == diaSeleccionado), horariosString="", horas=[]
     for (i=0;i<horarios.length;i++){
          let hora = horarios[i].hora
@@ -151,8 +169,22 @@ class DB{
          }
     }
     let HoraSeleccionada = prompt(`Seleccione un horario \n\nHorarios Disponibles: \n${horariosString}`)
+
     actividad.inscribir(persona, HoraSeleccionada, diaSeleccionado)
-        
+    
+
+    
+
+    
+
+    
+
+
+
+
+
+
+    
 //funciones
 function init (){
     //Cargar datos iniciales a la DB
@@ -181,4 +213,6 @@ function init (){
     turno5.guardar()
     turno6.guardar()
     turno7.guardar()
+
+    
 }
