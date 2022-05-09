@@ -39,9 +39,10 @@ class Persona{
 }
 
 class Actividad{
-    constructor(nombre, duracion){
+    constructor(id, nombre, duracion){
         this.nombre = nombre
         this.duracion = duracion
+        this.id = id
     }
 
     guardar(){
@@ -56,7 +57,7 @@ class Actividad{
         if (this.confirmarRequisitos()){
             let turnos = db.selectTurnosXActividad(this.nombre)
             let turno = turnos.filter(turno => turno.dia == dia && turno.hora == hora)[0]
-            if (turno.registrar(persona))alert(`Usted se incribio con exito a ${this.nombre} los dias ${dia} a las ${hora} hs.`)
+            return turno.registrar(persona)
         }
     }
     confirmarRequisitos(){
@@ -118,79 +119,103 @@ class DB{
         return this.turnos.filter(turno => turno.actividad == actividad);
     }
 
+    selectActividadXNombre(nombre){
+        return this.actividades.filter(actividad => actividad.nombre == nombre);
+    }
+
 }
 
-
 //main
+//Declarar la Base de datos como global
+const db = new DB()
+init()
 
-    //Declarar la Base de datos como global
-    const db = new DB()
-    init()
-
-    let nombre = prompt("Bienvenido!\nIngrese su nombre y apellido")
-    let edad = prompt("Ingrese su edad")
-    let dni = prompt("Ingrese su DNI")
-
-    let persona = new Persona(nombre, edad, dni)
-    persona.guardar()
-
-
-    let actividades = db.selectAll("Actividad")
-    let actividadesString = ""
-    for (i=0;i<actividades.length;i++)
-    {
-        actividadesString += actividades[i].nombre +"\n"
+let botonSubmit = document.getElementById("botonSubmit")
+botonSubmit.addEventListener('click',() => {
+    
+    let divAlert = document.getElementById("divAlert")
+    
+    if (document.getElementById("inputNombre").value != "" || document.getElementById("inputEdad").value != "" || document.getElementById("inputDNI").value!=""){
+        divAlert.className = "alert alert-primary mt-3"
+        divAlert.innerHTML="Seleccione una actividad"
+        let actividadSeleccionada, horaSeleccionada, diaSeleccionado;
+        
+        //Instanciar un nuevo objeto Persona
+        let persona = new Persona(document.getElementById("inputNombre").value, document.getElementById("inputEdad").value, document.getElementById("inputDNI").value)
+        
+        //Cargar el dropdown de actividades
+        let dropdownActividades = document.getElementById("dropdownActividades")
+        let actividades = db.selectAll("Actividad")
+        
+        for (i=0;i<actividades.length;i++)
+        {
+            dropdownActividades.innerHTML += `<li><a class="dropdown-item" id="botonActividad${actividades[i].id}">${actividades[i].nombre}</a></li>`
+        }
+        
+        //Agregar los listeners a las opciones del dropdown
+        actividades.forEach( actividad => {
+            document.getElementById(`botonActividad${actividad.id}`).addEventListener('click',() => {
+                divAlert.innerHTML="Seleccione un dia de la semana"
+                actividadSeleccionada = actividad
+                document.getElementById("dropdownMenuButton1").innerHTML=actividad.nombre
+                let divDias = document.getElementById("divDias")
+                
+                divDias.innerHTML = "" //Borrar el conetenido del div
+                
+                let turnos = actividad.mostrarTurnos()
+                
+                let dias =[]
+                for (i=0;i<turnos.length;i++){
+                    let dia = turnos[i].dia
+                    
+                    if (!dias.includes(dia,0)){
+                        dias.push(dia);
+                    }
+                }
+                
+                dias.forEach(dia => {
+                    divDias.innerHTML += `<button type="button" class="btn btn-primary" id="boton_${dia}">${dia}</button>\n`
+                })
+                
+                dias.forEach(dia =>{
+                    document.getElementById(`boton_${dia}`).addEventListener('click', () => {
+                        divAlert.innerHTML="Seleccione una hora"
+                        diaSeleccionado = dia
+                        let horas = turnos.filter(turno => turno.dia == dia)
+                        let divHoras = document.getElementById("divHoras")
+                        divHoras.innerHTML =""
+                        horas.forEach(hora =>{
+                            divHoras.innerHTML += `<button type="button" class="btn btn-success" id="turno_${hora.id}">${hora.hora}</button>`
+                        })
+                        horas.forEach(hora =>{
+                            document.getElementById(`turno_${hora.id}`).addEventListener('click',() => {
+                                horaSeleccionada = hora
+                                if(actividadSeleccionada.inscribir(persona,horaSeleccionada.hora,diaSeleccionado)){
+                                    divAlert.className = "alert alert-success mt-3"
+                                    divAlert.innerHTML=`Usted se inscribio con exito a ${actividad.nombre} los dias ${diaSeleccionado} a las ${horaSeleccionada.hora} hs.`
+                                }
+                            })
+                        })
+                    })
+                })
+            })
+        })
+        
+        //Habilitar el dropdown de actividades
+        document.getElementById("dropdownMenuButton1").removeAttribute("disabled")
     }
-
-    let actividadSeleccionada = prompt(`Seleccione una actividad \n\nActividades Disponibles: \n${actividadesString}`)
-    let actividad =  actividades.filter(actividad => actividad.nombre == actividadSeleccionada)[0];
-    console.log(actividad)
-
-    let turnos = actividad.mostrarTurnos()
-    let dias =[], diasString =""
-    for (i=0;i<turnos.length;i++){
-         let dia = turnos[i].dia
-
-         if (!dias.includes(dia,0)){
-            dias.push(dia);
-            diasString += dia + "\n"
-         }
+    else{
+        divAlert.className = "alert alert-danger mt-3"
+        divAlert.innerHTML="Debe rellenar todos los campos"
     }
+})
 
-    let diaSeleccionado = prompt(`Seleccione un dia \n\nDias Disponibles: \n${diasString}`)
-
-    let horarios = turnos.filter(turno => turno.dia == diaSeleccionado), horariosString="", horas=[]
-    for (i=0;i<horarios.length;i++){
-         let hora = horarios[i].hora
-
-         if (!horas.includes(hora,0)){
-            horas.push(hora);
-            horariosString += hora + "\n"
-         }
-    }
-    let HoraSeleccionada = prompt(`Seleccione un horario \n\nHorarios Disponibles: \n${horariosString}`)
-
-    actividad.inscribir(persona, HoraSeleccionada, diaSeleccionado)
-    
-
-    
-
-    
-
-    
-
-
-
-
-
-
-    
 //funciones
 function init (){
     //Cargar datos iniciales a la DB
-    const actividad1 = new Actividad("Yoga","60")
-    const actividad2 = new Actividad("Stretching","60")
-    const actividad3 = new Actividad("SportCycle","50")
+    const actividad1 = new Actividad(1, "Yoga","60")
+    const actividad2 = new Actividad(2, "Stretching","60")
+    const actividad3 = new Actividad(3, "SportCycle","50")
 
     actividad1.guardar()
     actividad2.guardar()
@@ -213,6 +238,4 @@ function init (){
     turno5.guardar()
     turno6.guardar()
     turno7.guardar()
-
-    
 }
