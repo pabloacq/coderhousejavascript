@@ -1,34 +1,36 @@
 //clases
 class Turno{
-    constructor(hora, dia, capacidad, actividad)
+    constructor({hora, dia, capacidad, actividad,inscriptos=[]})
     {
+        this.inscriptos = inscriptos
         this.hora = hora
         this.dia = dia
         this.capacidad = capacidad
-        this.actividad = actividad.nombre
-        this.ID = db.count(this)+1
-        this.inscriptos = []
+        this.actividad = actividad
+        this.id = db.count("Turno")+1
     }
-
+    
     guardar(){
         db.guardar(this)
     }
-
+    
     registrar(persona)
     {
-        if (this.capacidad > 0)
+        if (this.capacidad > 0 && !this.inscriptos.includes(persona.dni))
         {
             this.inscriptos.push(persona.dni)
             this.capacidad -= 1
             this.guardar()
             return true
         }
-        return false
+        else{
+            return false
+        }
     }
 }
 
 class Persona{
-    constructor(nombre, edad, dni){
+    constructor({nombre, edad, dni}){
         this.nombre = nombre
         this.edad = edad
         this.dni = dni
@@ -39,23 +41,24 @@ class Persona{
 }
 
 class Actividad{
-    constructor(id, nombre, duracion){
+    constructor({id, nombre, duracion}){
         this.nombre = nombre
         this.duracion = duracion
         this.id = id
     }
-
+    
     guardar(){
         db.guardar(this)
     }
-
-    mostrarTurnos(){
-        return db.selectTurnosXActividad(this.nombre)
+    
+    getTurnos(){
+        this.turnos = db.selectTurnosXActividad(this)
+        return this.turnos
     }
-
+    
     inscribir(persona, hora, dia){
         if (this.confirmarRequisitos()){
-            let turnos = db.selectTurnosXActividad(this.nombre)
+            let turnos = db.selectTurnosXActividad(this)
             let turno = turnos.filter(turno => turno.dia == dia && turno.hora == hora)[0]
             return turno.registrar(persona)
         }
@@ -69,21 +72,30 @@ class Actividad{
 //Simular una Base de Datos
 class DB{
     constructor(){
-        this.turnos = []
-        this.personas = []
-        this.actividades = []
+        this.turnos = localStorage.getItem("DB01turnos") || []
+        this.personas = localStorage.getItem("DB01personas") || []
+        this.actividades = localStorage.getItem("DB01actividades") || []
     }
     guardar(object) {
         switch (object.constructor.name){
             case "Persona":
                 this.personas.push(object)
+                localStorage.setItem("DB01personas",JSON.stringify(this.personas))
                 break
             case "Actividad":
                 this.actividades.push(object)
+                localStorage.setItem("DB01actividades",JSON.stringify(this.actividades))
                 break
             case "Turno":
-                
-                this.turnos.push(object)
+                console.log(object.id)
+                console.log(localStorage.getItem("DB01turnos"))
+                console.log(JSON.stringify(this.turnos))
+                let index = this.turnos.findIndex(turno => turno.id == object.id)
+                index == -1 ? this.turnos.push(object): this.turnos[index] = object
+                localStorage.setItem("DB01turnos",JSON.stringify(this.turnos))
+
+                console.log(localStorage.getItem("DB01turnos"))
+                console.log(JSON.stringify(this.turnos))
                 break
             default:
                 console.log("Objeto no valido")
@@ -93,10 +105,23 @@ class DB{
     selectAll(clase){
         switch (clase){
             case "Persona":
-               return this.personas
+                this.personas = []
+                localStorage.getItem("DB01personas").forEach(persona =>{
+                    this.personas.push(new Persona(persona))
+                })
+                return this.personas
             case "Actividad":
+                this.actividades = []
+                
+                JSON.parse(localStorage.getItem("DB01actividades")).forEach(actividad =>{
+                    this.actividades.push(new Actividad(actividad))
+                })
                 return this.actividades
             case "Turno":
+                this.turnos = []
+                JSON.parse(localStorage.getItem("DB01turnos")).forEach(turno =>{
+                    this.turnos.push(new Turno(turno))
+                })
                 return this.turnos
             default:
                 return []
@@ -105,7 +130,7 @@ class DB{
     count(clase){
         switch (clase){
             case "Persona":
-               return this.personas.length
+                return this.personas.length
             case "Actividad":
                 return this.actividades.length
             case "Turno":
@@ -114,19 +139,26 @@ class DB{
                 return []
         }
     }
-
+    
     selectTurnosXActividad(actividad){
-        return this.turnos.filter(turno => turno.actividad == actividad);
+        this.selectAll("Turno")
+        return this.turnos.filter(turno => turno.actividad == actividad.id)
     }
-
+    
     selectActividadXNombre(nombre){
-        return this.actividades.filter(actividad => actividad.nombre == nombre);
+        this.selectAll("Actividad")
+        return this.actividades.filter(actividad => actividad.nombre == nombre)
     }
-
+    
+    selectActividadXid(id){
+        return this.actividades.filter(actividad => actividad.id == id)[0]
+    }
+    
 }
 
 //Declarar la Base de datos como global
 const db = new DB()
+let actividadSeleccionada,persona,diaSeleccionado
 main();
 
 
@@ -135,128 +167,146 @@ main();
 //main
 function main(){
     init()
-
-    let observer = new MutationObserver((mutationList, observer)=>{observador(mutationList, observer)})
+    
+    let observer = new MutationObserver((mutationList, observer)=>{addListeners(mutationList, observer)})
     observer.observe(document.getElementById("divActividades"),{childList: true, subtree:true})
-
-    addListeners()
+    
+    addListenerToBotonSubmit()
 }
 
 //funciones
 function init (){
-    //Cargar datos iniciales a la DB
-    const actividad1 = new Actividad(1, "Yoga","60")
-    const actividad2 = new Actividad(2, "Stretching","60")
-    const actividad3 = new Actividad(3, "SportCycle","50")
-
-    actividad1.guardar()
-    actividad2.guardar()
-    actividad3.guardar()
-
-    const turno = new Turno("09:00","Lunes","20", actividad1 )
-    const turno1 = new Turno("15:00", "Miercoles","20", actividad1)
-    const turno2 = new Turno("11:30", "Jueves","20", actividad2)
-    const turno3 = new Turno("15:00", "Sabado","20", actividad2)
-    const turno4 = new Turno("09:00", "Jueves","20", actividad3)
-    const turno5 = new Turno("16:00", "Miercoles","20", actividad3)
-    const turno6 = new Turno("09:00", "Martes","20", actividad3)
-    const turno7 = new Turno("13:00", "Sabado","20", actividad2)
-
-    turno.guardar()
-    turno1.guardar()
-    turno2.guardar()
-    turno3.guardar()
-    turno4.guardar()
-    turno5.guardar()
-    turno6.guardar()
-    turno7.guardar()
+    if (!localStorage.getItem("DB01actividades")){
+        //Cargar datos iniciales a la DB
+        const actividad1 = new Actividad({id:1, nombre:"Yoga",duracion:"60"})
+        actividad1.guardar()
+        const actividad2 = new Actividad({id:2, nombre:"Stretching",duracion:"60"})
+        actividad2.guardar()
+        const actividad3 = new Actividad({id:3, nombre:"SportCycle",duracion:"50"})
+        actividad3.guardar()
+        
+        
+        new Turno({hora:"09:00",dia:"Lunes",capacidad:"20", actividad: actividad1.id }).guardar()
+        new Turno({hora:"15:00",dia:"Martes",capacidad:"20", actividad: actividad1.id }).guardar()
+        new Turno({hora:"18:00",dia:"Miercoles",capacidad:"20", actividad: actividad2.id }).guardar()
+        new Turno({hora:"11:00",dia:"Viernes",capacidad:"20", actividad: actividad3.id }).guardar()
+        new Turno({hora:"12:00",dia:"Sabado",capacidad:"20", actividad: actividad3.id }).guardar()
+        new Turno({hora:"17:00",dia:"Lunes",capacidad:"20", actividad: actividad3.id }).guardar()
+        new Turno({hora:"09:00",dia:"Jueves",capacidad:"20", actividad: actividad2.id }).guardar()
+        new Turno({hora:"20:00",dia:"Jueves",capacidad:"20", actividad: actividad1.id }).guardar()
+    }
 }
 
-function botonSubmitAction(){     
-        let divAlert = document.getElementById("divAlert")
-        
-        if (document.getElementById("inputNombre").value != "" || document.getElementById("inputEdad").value != "" || document.getElementById("inputDNI").value!=""){
-            divAlert.className = "alert alert-primary mt-3"
-            divAlert.innerHTML="Seleccione una actividad"
-            let actividadSeleccionada, horaSeleccionada, diaSeleccionado;
+function addListenerToBotonSubmit(){  
+    let botonSubmit = document.getElementById("botonSubmit")
+    botonSubmit.addEventListener('click',() => {   
+        //Habilitar el dropdown de actividades
+        document.getElementById("dropdownMenuButton1").disabled=false
+        if (document.getElementById("inputNombre").value != "" && document.getElementById("inputEdad").value != "" && document.getElementById("inputDNI").value!=""){
+            updateMessage("Seleccione una actividad","information")
             
             //Instanciar un nuevo objeto Persona
-            let persona = new Persona(document.getElementById("inputNombre").value, document.getElementById("inputEdad").value, document.getElementById("inputDNI").value)
+            persona = new Persona({
+                nombre: document.getElementById("inputNombre").value, 
+                edad: document.getElementById("inputEdad").value, 
+                dni: document.getElementById("inputDNI").value})
             
             //Cargar el dropdown de actividades
             let dropdownActividades = document.getElementById("dropdownActividades")
             let actividades = db.selectAll("Actividad")
-            
             for (i=0;i<actividades.length;i++)
             {
-                dropdownActividades.innerHTML += `<li><a class="dropdown-item" id="botonActividad${actividades[i].id}">${actividades[i].nombre}</a></li>`
+                dropdownActividades.innerHTML += `<li><a class="dropdown-item" name="actividad" id="botonActividad${actividades[i].id}">${actividades[i].nombre}</a></li>`
             }
-            
-            //Agregar los listeners a las opciones del dropdown
-            actividades.forEach( actividad => {
-                document.getElementById(`botonActividad${actividad.id}`).addEventListener('click',() => {
-                    divAlert.innerHTML="Seleccione un dia de la semana"
-                    actividadSeleccionada = actividad
-                    document.getElementById("dropdownMenuButton1").innerHTML=actividad.nombre
-                    let divDias = document.getElementById("divDias")
-                    
-                    divDias.innerHTML = "" //Borrar el conetenido del div
-                    
-                    let turnos = actividad.mostrarTurnos()
-                    
-                    let dias =[]
-                    for (i=0;i<turnos.length;i++){
-                        let dia = turnos[i].dia
-                        
-                        if (!dias.includes(dia,0)){
-                            dias.push(dia);
-                        }
-                    }
-                    
-                    dias.forEach(dia => {
-                        divDias.innerHTML += `<button type="button" class="btn btn-primary" id="boton_${dia}">${dia}</button>\n`
-                    })
-                    
-                    dias.forEach(dia =>{
-                        document.getElementById(`boton_${dia}`).addEventListener('click', () => {
-                            divAlert.innerHTML="Seleccione una hora"
-                            diaSeleccionado = dia
-                            let horas = turnos.filter(turno => turno.dia == dia)
-                            let divHoras = document.getElementById("divHoras")
-                            divHoras.innerHTML =""
-                            horas.forEach(hora =>{
-                                divHoras.innerHTML += `<button type="button" class="btn btn-success" id="turno_${hora.id}">${hora.hora}</button>`
-                            })
-                            horas.forEach(hora =>{
-                                document.getElementById(`turno_${hora.id}`).addEventListener('click',() => {
-                                    horaSeleccionada = hora
-                                    if(actividadSeleccionada.inscribir(persona,horaSeleccionada.hora,diaSeleccionado)){
-                                        divAlert.className = "alert alert-success mt-3"
-                                        divAlert.innerHTML=`Usted se inscribio con exito a ${actividad.nombre} los dias ${diaSeleccionado} a las ${horaSeleccionada.hora} hs.`
-                                    }
-                                })
-                            })
-                        })
-                    })
-                })
-            })
-            
-            //Habilitar el dropdown de actividades
-            document.getElementById("dropdownMenuButton1").removeAttribute("disabled")
         }
         else{
-            divAlert.className = "alert alert-danger mt-3"
-            divAlert.innerHTML="Debe rellenar todos los campos"
+            document.getElementById("dropdownMenuButton1").disabled = true
+            updateMessage("Debe rellenar todos los campos","error")
         }
-    
+    })
 }
 
-function addListeners(){
-    let botonSubmit = document.getElementById("botonSubmit")
-    botonSubmit.addEventListener('click',() => botonSubmitAction())
+function addListeners(mutationList, observer){
+    mutationList.filter(child => child.target.id == "dropdownActividades" ).length > 0 ? AddListenersToActividades() : null
+    mutationList.filter(child => child.target.id == "divDias" ).length > 0 ? addListenersToDias() : null
+    mutationList.filter(child => child.target.id == "divHoras" ).length > 0 ? addListenersToHoras() : null
 }
 
-function observador(mutationList, observer){
-    console.log(mutationList)
-    console.log(observer)
+function AddListenersToActividades(){
+    console.log("Adding Listeners To Actividades")
+    //Agregar los listeners a las opciones del dropdown
+    const actividades = document.getElementsByName("actividad")
+    actividades.forEach( actividad => {
+        actividad.addEventListener('click',() => {
+            updateMessage("Seleccione un dia de la semana","information")
+            actividadSeleccionada = db.selectActividadXid(actividad.id.replace("botonActividad",""))
+            document.getElementById("dropdownMenuButton1").innerHTML=actividadSeleccionada.nombre
+            let divDias = document.getElementById("divDias")
+            
+            divDias.innerHTML = "" //Borrar el conetenido del div
+            
+            let turnos = actividadSeleccionada.getTurnos()
+            
+            let dias =[]
+            for (i=0;i<turnos.length;i++){
+                let dia = turnos[i].dia
+                
+                if (!dias.includes(dia,0)){
+                    dias.push(dia);
+                }
+            }
+            dias.forEach(dia => {
+                divDias.innerHTML += `<button type="button" class="btn btn-primary" name="dia" id="boton_${dia}">${dia}</button>\n`
+            })      
+        })
+    })
+}
+
+function addListenersToDias(){
+    console.log("Adding Listeners To Dias")
+    const dias = document.getElementsByName("dia")
+    dias.forEach(dia =>{
+        dia.addEventListener('click', () => {
+            updateMessage("Seleccione una hora","information")
+            diaSeleccionado = dia.innerHTML
+            console.log("Adding Listeners to Horas")
+            let horas = actividadSeleccionada.getTurnos().filter(turno => turno.dia == dia.innerHTML)
+            let divHoras = document.getElementById("divHoras")
+            divHoras.innerHTML =""
+            horas.forEach(hora =>{
+                divHoras.innerHTML += `<button type="button" class="btn btn-success" name="hora" id="turno_${hora.id}">${hora.hora}</button>`
+            })
+        })
+    })
+}
+
+function addListenersToHoras(){
+    const horas = document.getElementsByName("hora")
+    horas.forEach(hora =>{
+        hora.addEventListener('click',() => {
+            horaSeleccionada = hora.innerHTML
+            if(actividadSeleccionada.inscribir(persona,horaSeleccionada,diaSeleccionado)){
+                updateMessage(`Usted se inscribio con exito a ${actividadSeleccionada.nombre} los dias ${diaSeleccionado} a las ${horaSeleccionada} hs.`, "success")
+            }
+            else{
+                updateMessage(`Error, tal vez ya esta inscripto?`, "error")
+            }
+        })
+    })
+}
+
+function updateMessage(text, type){
+    const divAlert = document.getElementById("divAlert")
+    let cssClass
+    switch(type){
+        case "success":
+        cssClass = "alert alert-success mt-3"; break
+        break
+        case "error":
+        cssClass = "alert alert-danger mt-3"; break
+        case "information":
+        cssClass="alert alert-primary mt-3"; break
+    }
+    divAlert.className = cssClass
+    divAlert.innerHTML = text
 }
