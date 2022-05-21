@@ -203,7 +203,8 @@ function addListenerToBotonSubmit(){
         //Habilitar el dropdown de actividades
         document.getElementById("dropdownMenuButton1").disabled=false
         if (document.getElementById("inputNombre").value != "" && document.getElementById("inputEdad").value != "" && document.getElementById("inputDNI").value!=""){
-            updateMessage("Seleccione una actividad","information")
+            updateMessage({text:"Seleccione una actividad",
+                           type:"information"})
             
             //Instanciar un nuevo objeto Persona
             persona = new Persona({
@@ -221,7 +222,8 @@ function addListenerToBotonSubmit(){
         }
         else{
             document.getElementById("dropdownMenuButton1").disabled = true
-            updateMessage("Debe rellenar todos los campos","error")
+            updateMessage({text:"Debe rellenar todos los campos para continuar",
+                           type:"error"})
         }
     })
 }
@@ -238,7 +240,8 @@ function AddListenersToActividades(){
     const actividades = document.getElementsByName("actividad")
     actividades.forEach( actividad => {
         actividad.addEventListener('click',() => {
-            updateMessage("Seleccione un dia de la semana","information")
+            updateMessage({text:"Seleccione un dia de la semana",
+                           type:"information"})
             actividadSeleccionada = db.selectActividadXid(actividad.id.replace("botonActividad",""))
             document.getElementById("dropdownMenuButton1").innerHTML=actividadSeleccionada.nombre
             let divDias = document.getElementById("divDias")
@@ -267,7 +270,8 @@ function addListenersToDias(){
     const dias = document.getElementsByName("dia")
     dias.forEach(dia =>{
         dia.addEventListener('click', () => {
-            updateMessage("Seleccione una hora","information")
+            updateMessage({text:"Seleccione una hora",
+                           type:"information"})
             diaSeleccionado = dia.innerHTML
             console.log("Adding Listeners to Horas")
             let horas = actividadSeleccionada.getTurnos().filter(turno => turno.dia == dia.innerHTML)
@@ -286,27 +290,45 @@ function addListenersToHoras(){
         hora.addEventListener('click',() => {
             horaSeleccionada = hora.innerHTML
             if(actividadSeleccionada.inscribir(persona,horaSeleccionada,diaSeleccionado)){
-                updateMessage(`Usted se inscribio con exito a ${actividadSeleccionada.nombre} los dias ${diaSeleccionado} a las ${horaSeleccionada} hs.`, "success")
+                updateMessage({text: `Usted se inscribio con exito a ${actividadSeleccionada.nombre} los dias ${diaSeleccionado} a las ${horaSeleccionada} hs.`, 
+                               type:"success"})
             }
             else{
-                updateMessage(`Error, tal vez ya esta inscripto?`, "error")
+                updateMessage({text:`Error, tal vez ya esta inscripto?`, 
+                               type:"error"})
             }
         })
     })
 }
 
-function updateMessage(text, type){
+function updateMessage({text, type}){
+
+    if (type == "information") {
+        updateMessageInDiv({text: text, type:type})
+        return
+    }
+    updateMessageInAlert({text: text, type:type})
+}
+
+function updateMessageInDiv({text, type}){
     const divAlert = document.getElementById("divAlert")
     let cssClass
-    switch(type){
-        case "success":
-        cssClass = "alert alert-success mt-3"; break
-        break
-        case "error":
-        cssClass = "alert alert-danger mt-3"; break
-        case "information":
-        cssClass="alert alert-primary mt-3"; break
-    }
+    cssClass="alert alert-primary mt-3";
     divAlert.className = cssClass
     divAlert.innerHTML = text
+}
+
+function updateMessageInAlert({text, type}){
+    let position = 'top-end'
+
+    if (type == 'error'){
+        position = 'center'}
+        
+
+    Swal.fire({
+        position: position,
+        icon: type,
+        title: text,
+        showConfirmButton: true
+      })
 }
