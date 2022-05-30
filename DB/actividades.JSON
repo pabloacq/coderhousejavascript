@@ -1,0 +1,17 @@
+[
+    {
+        "nombre":"Yoga",
+        "duracion":"60",
+        "id":1
+    },
+    {
+        "nombre":"Stretching",
+        "duracion":"60",
+        "id":2
+    },
+    {
+        "nombre":"SportCycle",
+        "duracion":"50",
+        "id":3
+    }
+]

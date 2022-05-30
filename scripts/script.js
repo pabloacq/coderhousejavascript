@@ -72,9 +72,25 @@ class Actividad{
 //Simular una Base de Datos
 class DB{
     constructor(){
-        this.turnos = localStorage.getItem("DB01turnos") || []
-        this.personas = localStorage.getItem("DB01personas") || []
-        this.actividades = localStorage.getItem("DB01actividades") || []
+        this.turnos = []
+        this.personas = []
+        this.actividades = []
+    }
+    load(){
+        if (localStorage.getItem("DB01personas")){
+            JSON.parse(localStorage.getItem("DB01personas")).forEach(persona =>{
+                this.personas.push(new Persona(persona))
+        })}
+
+        if (localStorage.getItem("DB01actividades")){
+        JSON.parse(localStorage.getItem("DB01actividades")).forEach(actividad =>{
+            this.actividades.push(new Actividad(actividad))
+        })}
+        
+        if (localStorage.getItem("DB01turnos")){
+        JSON.parse(localStorage.getItem("DB01turnos")).forEach(turno =>{
+            this.turnos.push(new Turno(turno))
+        })}
     }
     guardar(object) {
         switch (object.constructor.name){
@@ -105,23 +121,11 @@ class DB{
     selectAll(clase){
         switch (clase){
             case "Persona":
-                this.personas = []
-                localStorage.getItem("DB01personas").forEach(persona =>{
-                    this.personas.push(new Persona(persona))
-                })
                 return this.personas
             case "Actividad":
-                this.actividades = []
-                
-                JSON.parse(localStorage.getItem("DB01actividades")).forEach(actividad =>{
-                    this.actividades.push(new Actividad(actividad))
-                })
                 return this.actividades
             case "Turno":
-                this.turnos = []
-                JSON.parse(localStorage.getItem("DB01turnos")).forEach(turno =>{
-                    this.turnos.push(new Turno(turno))
-                })
+
                 return this.turnos
             default:
                 return []
@@ -158,6 +162,7 @@ class DB{
 
 //Declarar la Base de datos como global
 const db = new DB()
+db.load();
 let actividadSeleccionada,persona,diaSeleccionado
 main();
 
@@ -178,22 +183,22 @@ function main(){
 function init (){
     if (!localStorage.getItem("DB01actividades")){
         //Cargar datos iniciales a la DB
-        const actividad1 = new Actividad({id:1, nombre:"Yoga",duracion:"60"})
-        actividad1.guardar()
-        const actividad2 = new Actividad({id:2, nombre:"Stretching",duracion:"60"})
-        actividad2.guardar()
-        const actividad3 = new Actividad({id:3, nombre:"SportCycle",duracion:"50"})
-        actividad3.guardar()
+        fetch("./DB/actividades.JSON")
+        .then(response => response.json())
+        .then(actividades => { actividades.forEach(actividad => {
+            const newActividad = new Actividad({id:actividad.id, nombre:actividad.nombre,duracion:actividad.duracion})
+            console.log(newActividad)
+            newActividad.guardar()
+        })})
         
-        
-        new Turno({hora:"09:00",dia:"Lunes",capacidad:"20", actividad: actividad1.id }).guardar()
-        new Turno({hora:"15:00",dia:"Martes",capacidad:"20", actividad: actividad1.id }).guardar()
-        new Turno({hora:"18:00",dia:"Miercoles",capacidad:"20", actividad: actividad2.id }).guardar()
-        new Turno({hora:"11:00",dia:"Viernes",capacidad:"20", actividad: actividad3.id }).guardar()
-        new Turno({hora:"12:00",dia:"Sabado",capacidad:"20", actividad: actividad3.id }).guardar()
-        new Turno({hora:"17:00",dia:"Lunes",capacidad:"20", actividad: actividad3.id }).guardar()
-        new Turno({hora:"09:00",dia:"Jueves",capacidad:"20", actividad: actividad2.id }).guardar()
-        new Turno({hora:"20:00",dia:"Jueves",capacidad:"20", actividad: actividad1.id }).guardar()
+        new Turno({hora:"09:00",dia:"Lunes",capacidad:"20", actividad: "1" }).guardar()
+        new Turno({hora:"15:00",dia:"Martes",capacidad:"20", actividad: "1" }).guardar()
+        new Turno({hora:"18:00",dia:"Miercoles",capacidad:"20", actividad: "2" }).guardar()
+        new Turno({hora:"11:00",dia:"Viernes",capacidad:"20", actividad: "3" }).guardar()
+        new Turno({hora:"12:00",dia:"Sabado",capacidad:"20", actividad: "4" }).guardar()
+        new Turno({hora:"17:00",dia:"Lunes",capacidad:"20", actividad: "3" }).guardar()
+        new Turno({hora:"09:00",dia:"Jueves",capacidad:"20", actividad: "2" }).guardar()
+        new Turno({hora:"20:00",dia:"Jueves",capacidad:"20", actividad: "1" }).guardar()
     }
 }
 
