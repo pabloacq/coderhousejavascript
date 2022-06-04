@@ -1,168 +1,6 @@
-//clases
-class Turno{
-    constructor({hora, dia, capacidad, actividad,inscriptos=[]})
-    {
-        this.inscriptos = inscriptos
-        this.hora = hora
-        this.dia = dia
-        this.capacidad = capacidad
-        this.actividad = actividad
-        this.id = db.count("Turno")+1
-    }
-    
-    guardar(){
-        db.guardar(this)
-    }
-    
-    registrar(persona)
-    {
-        if (this.capacidad > 0 && !this.inscriptos.includes(persona.dni))
-        {
-            this.inscriptos.push(persona.dni)
-            this.capacidad -= 1
-            this.guardar()
-            return true
-        }
-        else{
-            return false
-        }
-    }
-}
-
-class Persona{
-    constructor({nombre, edad, dni}){
-        this.nombre = nombre
-        this.edad = edad
-        this.dni = dni
-    }
-    guardar(){
-        db.guardar(this)
-    }
-}
-
-class Actividad{
-    constructor({id, nombre, duracion}){
-        this.nombre = nombre
-        this.duracion = duracion
-        this.id = id
-    }
-    
-    guardar(){
-        db.guardar(this)
-    }
-    
-    getTurnos(){
-        this.turnos = db.selectTurnosXActividad(this)
-        return this.turnos
-    }
-    
-    inscribir(persona, hora, dia){
-        if (this.confirmarRequisitos()){
-            let turnos = db.selectTurnosXActividad(this)
-            let turno = turnos.filter(turno => turno.dia == dia && turno.hora == hora)[0]
-            return turno.registrar(persona)
-        }
-    }
-    confirmarRequisitos(){
-        //La persona cumple con los requisitos para inscribirse en la actividad ? 
-        return true
-    }
-}
-
-//Simular una Base de Datos
-class DB{
-    constructor(){
-        this.turnos = []
-        this.personas = []
-        this.actividades = []
-    }
-    load(){
-        if (localStorage.getItem("DB01personas")){
-            JSON.parse(localStorage.getItem("DB01personas")).forEach(persona =>{
-                this.personas.push(new Persona(persona))
-        })}
-
-        if (localStorage.getItem("DB01actividades")){
-        JSON.parse(localStorage.getItem("DB01actividades")).forEach(actividad =>{
-            this.actividades.push(new Actividad(actividad))
-        })}
-        
-        if (localStorage.getItem("DB01turnos")){
-        JSON.parse(localStorage.getItem("DB01turnos")).forEach(turno =>{
-            this.turnos.push(new Turno(turno))
-        })}
-    }
-    guardar(object) {
-        switch (object.constructor.name){
-            case "Persona":
-                this.personas.push(object)
-                localStorage.setItem("DB01personas",JSON.stringify(this.personas))
-                break
-            case "Actividad":
-                this.actividades.push(object)
-                localStorage.setItem("DB01actividades",JSON.stringify(this.actividades))
-                break
-            case "Turno":
-                console.log(object.id)
-                console.log(localStorage.getItem("DB01turnos"))
-                console.log(JSON.stringify(this.turnos))
-                let index = this.turnos.findIndex(turno => turno.id == object.id)
-                index == -1 ? this.turnos.push(object): this.turnos[index] = object
-                localStorage.setItem("DB01turnos",JSON.stringify(this.turnos))
-
-                console.log(localStorage.getItem("DB01turnos"))
-                console.log(JSON.stringify(this.turnos))
-                break
-            default:
-                console.log("Objeto no valido")
-                break
-        }
-    }
-    selectAll(clase){
-        switch (clase){
-            case "Persona":
-                return this.personas
-            case "Actividad":
-                return this.actividades
-            case "Turno":
-
-                return this.turnos
-            default:
-                return []
-        }
-    }
-    count(clase){
-        switch (clase){
-            case "Persona":
-                return this.personas.length
-            case "Actividad":
-                return this.actividades.length
-            case "Turno":
-                return this.turnos.length
-            default:
-                return []
-        }
-    }
-    
-    selectTurnosXActividad(actividad){
-        this.selectAll("Turno")
-        return this.turnos.filter(turno => turno.actividad == actividad.id)
-    }
-    
-    selectActividadXNombre(nombre){
-        this.selectAll("Actividad")
-        return this.actividades.filter(actividad => actividad.nombre == nombre)
-    }
-    
-    selectActividadXid(id){
-        return this.actividades.filter(actividad => actividad.id == id)[0]
-    }
-    
-}
+import {Turno, Actividad, Persona} from "./modules/modules.js"
 
 //Declarar la Base de datos como global
-const db = new DB()
-db.load();
 let actividadSeleccionada,persona,diaSeleccionado
 main();
 
@@ -171,6 +9,7 @@ main();
 
 //main
 function main(){
+    
     init()
     
     let observer = new MutationObserver((mutationList, observer)=>{addListeners(mutationList, observer)})
@@ -182,6 +21,7 @@ function main(){
 //funciones
 function init (){
     if (!localStorage.getItem("DB01actividades")){
+        console.log("init")
         //Cargar datos iniciales a la DB
         fetch("./DB/actividades.JSON")
         .then(response => response.json())
