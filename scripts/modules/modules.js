@@ -1,107 +1,160 @@
 //clases
-export class Turno{
-    constructor({hora, dia, capacidad, actividad,inscriptos=[]})
+export class DataItem{
+    constructor(id = null){
+        this.id = id
+    }
+
+    guardar(){
+        DB.guardar(this)
+    }
+
+    static getAll(){
+        return DB.selectAll(this)
+    }
+
+    static getByID(id){
+        return DB.selectByID(this,id)
+    }
+
+    static getByLindekDataItem(dataItem, dataItemName = null){
+        const searchParm = dataItemName || dataItem.constructor.name 
+        let searchArray = DB.selectAll(this)
+        return searchArray.filter(thisObject => thisObject[searchParm.toLowerCase()] == dataItem.id)
+    }
+
+    static getBy(searchParm, searchParmValue){
+        let searchArray = DB.selectAll(this)
+        return searchArray.filter(thisObject => thisObject[searchParm.toLowerCase()] == searchParmValue)
+    }
+
+}
+
+export class Turno extends DataItem{
+    constructor({id=null, hora, dia, capacidad, actividad,inscriptos=[]})
     {
+        super(id)
         this.inscriptos = inscriptos
         this.hora = hora
         this.dia = dia
         this.capacidad = capacidad
         this.actividad = actividad
+        this.actividadNombre = Actividad.getByID(this.actividad).nombre
     }
     
-    guardar(){
-        DB.guardar(this)
-    }
-    
-    registrar(persona)
+    inscribir(persona)
     {
-        if (this.capacidad > 0 && !this.inscriptos.includes(persona.dni))
+        if (this.capacidad > 0 && !this.inscriptos.includes(persona.id))
         {
-            this.inscriptos.push(persona.dni)
-            this.capacidad -= 1
-            this.guardar()
-            return true
+            const actividad = Actividad.getByID(this.actividad)
+            if (actividad.confirmarRequisitos()){
+                this.inscriptos.push(persona.id)
+                this.capacidad -= 1
+                this.guardar()
+                return true
+            }
         }
         else{
             return false
         }
     }
+
+    static getByID(id){
+        return new Turno(super.getByID(id))
+    }
+
+    static getByLindekDataItem(object, dataItemName){
+        let turnArray = []        
+        super.getByLindekDataItem(object, dataItemName).forEach(turno => turnArray.push(new Turno(turno)))
+        return turnArray
+    }
+
+    static getByInscripto(idInscripto){
+        let turnArray = []
+        this.getAll().forEach(turno => {
+            if (turno.inscriptos.includes(idInscripto)) turnArray.push(new Turno(turno))
+        })
+        return turnArray
+    }
+
+    unsuscribe(idInscripto){
+
+        let indexOf = this.inscriptos.indexOf(idInscripto)
+        if (indexOf < 0) return
+
+        let unsuscribed = this.inscriptos.splice(indexOf,1)
+        this.capacidad += unsuscribed.length
+        this.guardar()
+    }
 }
 
-export class Persona{
-    constructor({nombre, edad, dni}){
+export class Persona extends DataItem{
+    constructor({id, nombre, edad, dni}){
+        super(id)
         this.nombre = nombre
         this.edad = edad
         this.dni = dni
     }
-    guardar(){
-        DB.guardar(this)
+
+    static login({nombre, edad, dni}){
+        let user = this.getBy("dni",dni)[0]
+        if (!user){
+            user = new Persona({nombre: nombre, edad: edad, dni: dni})
+            user.guardar()
+            user = this.getBy("dni",dni)[0]
+        }
+        return user
+    }
+
+    getTurnos(){
+        return Turno.getByInscripto(this.id)
     }
 }
 
-export class Actividad{
-    constructor({id, nombre, duracion}){
+export class Actividad extends DataItem{
+    constructor({id=null, nombre, duracion}){
+        super(id)
         this.nombre = nombre
         this.duracion = duracion
-        this.id = id
-    }
-    
-    guardar(){
-        DB.guardar(this)
     }
     
     getTurnos(){
-        this.turnos = DB.selectTurnosXActividad(this)
-        return this.turnos
+        return Turno.getByLindekDataItem(this)
     }
     
-    inscribir(persona, hora, dia){
-        if (this.confirmarRequisitos()){
-            let turnos = DB.selectTurnosXActividad(this)
-            let turno = turnos.filter(turno => turno.dia == dia && turno.hora == hora)[0]
-            return turno.registrar(persona)
-        }
-    }
     confirmarRequisitos(){
         //La persona cumple con los requisitos para inscribirse en la actividad ? 
         return true
+    }
+
+    static getByID(id){
+        return new Actividad(super.getByID(id))
     }
 }
 
 //Simular una Base de Datos
 export class DB{
-    load(){
-        if (localStorage.getItem("DB01personas")){
-            JSON.parse(localStorage.getItem("DB01personas")).forEach(persona =>{
-                this.personas.push(new Persona(persona))
-        })}
-
-        if (localStorage.getItem("DB01actividades")){
-        JSON.parse(localStorage.getItem("DB01actividades")).forEach(actividad =>{
-            this.actividades.push(new Actividad(actividad))
-        })}
-        
-        if (localStorage.getItem("DB01turnos")){
-        JSON.parse(localStorage.getItem("DB01turnos")).forEach(turno =>{
-            this.turnos.push(new Turno(turno))
-        })}
-    }
-
     static guardar(object) {
-        let dbItemName = this.#getDbItemName(object)
-        let dbItem = this.#getFromDB(dbItemName)
+        let dbItemsArray = this.selectAll(object)
         
-        if (this.#isObjectNewToDB(object)){
-            object.id = calculateNextID(dbItem)
+        if (this.#isNewToDB(object)){
+            object.id = this.#calculateNextID(dbItemsArray)
+        }
+        else{
+            dbItemsArray = this.#removeElementFromArray(object,dbItemsArray)
         }
 
-        //TO-DO Reemplazar por splice?
-        dbItem[object.id-1] = object
-        console.log(dbItem)
-        this.#saveToDB(dbItemName,dbItem)
+        dbItemsArray.push(object)
+
+        let dbItemName = this.#getDbItemName(object)
+        this.#saveToDB(dbItemName,dbItemsArray)
     }
 
-    static #isObjectNewToDB(object){
+    static #removeElementFromArray(element,fromArray)
+    {
+        return fromArray.filter(object => object.id != element.id)
+    }
+
+    static #isNewToDB(object){
         return object.id == null
     }
 
@@ -110,7 +163,7 @@ export class DB{
     }
 
     static #getDbItemName(object){
-        switch (object.constructor.name){
+        switch (object.name || object.constructor.name){
             case "Persona":
                 return "DB01personas"
             case "Actividad":
@@ -128,6 +181,7 @@ export class DB{
 
     static #getFromDB(localStorageItemName){
         let localStorageItemValue = localStorage.getItem(localStorageItemName)
+
         let resultsArray = []
         if (localStorageItemValue){
             JSON.parse(localStorageItemValue).forEach(object =>{
@@ -137,44 +191,19 @@ export class DB{
         return resultsArray
     }
 
-    selectAll(clase){
-        switch (clase){
-            case "Persona":
-                return this.personas
-            case "Actividad":
-                return this.actividades
-            case "Turno":
-
-                return this.turnos
-            default:
-                return []
-        }
-    }
-    count(clase){
-        switch (clase){
-            case "Persona":
-                return this.personas.length
-            case "Actividad":
-                return this.actividades.length
-            case "Turno":
-                return this.turnos.length
-            default:
-                return []
-        }
+    static selectAll(object){
+        return this.#getFromDB(this.#getDbItemName(object))
     }
     
-    selectTurnosXActividad(actividad){
-        this.selectAll("Turno")
-        return this.turnos.filter(turno => turno.actividad == actividad.id)
+    static selectByID(object, id){
+        return this.#getFromDB(this.#getDbItemName(object)).filter(object => object.id == id)[0]
     }
+
+   
     
     selectActividadXNombre(nombre){
         this.selectAll("Actividad")
         return this.actividades.filter(actividad => actividad.nombre == nombre)
-    }
-    
-    selectActividadXid(id){
-        return this.actividades.filter(actividad => actividad.id == id)[0]
     }
     
 }
