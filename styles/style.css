@@ -1,0 +1,22 @@
+.gradient-custom {
+    background: #6a11cb;
+    background: -webkit-linear-gradient(to right, rgba(106, 17, 203, 1), rgba(37, 117, 252, 1));
+    background: linear-gradient(to right, rgba(106, 17, 203, 1), rgba(37, 117, 252, 1))
+    }
+
+.min-vh-10{
+    min-height: 10vh;
+}
+
+.w-23{
+    width: 23%;
+}
+
+.table-dark{
+    border-radius: 0.25rem;
+}
+
+.logo{
+    font-family: 'Fascinate', cursive;
+    margin-bottom: 10px;
+}

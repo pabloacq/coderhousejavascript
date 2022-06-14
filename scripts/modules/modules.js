@@ -101,6 +101,10 @@ export class Persona extends DataItem{
             user = new Persona({nombre: nombre, edad: edad, dni: dni})
             user.guardar()
             user = this.getBy("dni",dni)[0]
+        }else{
+            if(nombre != user.nombre || edad != user.edad){
+                throw("Error los datos no son correctos")
+            }
         }
         return user
     }

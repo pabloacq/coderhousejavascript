@@ -2,54 +2,19 @@ import {Turno, Actividad, Persona, DataItem} from "./modules/modules.js"
 
 main();
 
-
-async function test(){
-    localStorage.removeItem("DB01actividades")
-    localStorage.removeItem("DB01turnos")
-    localStorage.removeItem("DB01personas")
-    await init()
-    const testActividad = Actividad.getByID(1)
-    const persona = new Persona({nombre: "PersonaTest1", edad: "20", dni: "111111"})
-    persona.guardar()
-    const persona2 = new Persona({nombre: "PersonaTest2", edad: "20", dni: "22222"})
-    persona2.guardar()
-    const turno = testActividad.getTurnos().filter( turno => turno.hora =='09:00' && turno.dia =='Lunes')[0]
-
-    unitTest(testActividad.constructor.name == "Actividad", "Should Return Actividad Type")
-    unitTest(testActividad.getTurnos().length == 3,"Get Turnos By Actividad (Should return 3)")
-    unitTest(turno.inscriptos.length == 0, "Turnos.length should be 0")
-    unitTest(turno.inscribir(persona) == true, "Actividad.inscribir should be true")
-    turno.inscribir(persona2)
-    const turno2 = testActividad.getTurnos().filter( turno => turno.hora =='09:00' && turno.dia =='Lunes')[0]
-    unitTest(turno2.inscriptos.length==2,"DB Turnos inscriptos should be 2")
-    unitTest(turno2.capacidad == 18, "Capacidad should be 18")
-    unitTest(Turno.getAll().length==8, "Turnos.length should be 8")
-    unitTest(Persona.login({nombre:"Nombre Test 1", edad: 30, dni:123456}).id != null, "Persona login")
-
-    main()
-}
-
-function unitTest(func, text){
-    if (func){
-        console.log(`%c${text + " - PASSED"}`, 'color: green')
-    }
-    else{
-        console.error(text + "- Error")
-    }
-}
-
-
 //main
 async function main(){
-    document.getElementById("btnInscribirse").addEventListener('click',() => showTurnPicker(user))
-    document.getElementById("btnMisInscripciones").addEventListener('click',() => showTurnList(user))
-
     await init()
     const user = getUserFromSessionStorage() 
-    user ? showTurnPicker(user) : showLogin()
+    if (user) {
+        document.getElementById("btnInscribirse").addEventListener('click',() => showTurnPicker(user))
+        document.getElementById("btnMisInscripciones").addEventListener('click',() => showTurnList(user))
+        showTurnPicker(user)
+    }else{ showLogin()}
 }
 
 async function showTurnList(user){
+    if (await userNotLoggedRedirect(user)) return   
     await insertPartialInElement("./html/_turnList.html","appDiv")
     let rowHTML = ""
     await fetch("./html/_turnListRow.html").then(response => response.text()).then(text => rowHTML = text);
@@ -66,38 +31,50 @@ async function showTurnList(user){
         })    
     }
     else{
-        document.getElementById("appDiv").innerHTML = "<p>Todavia no estas inscripto a ninguna actividad</p>"
+        document.getElementById("turnDiv").innerHTML = "<p class='my-3 text-white'>Todavia no estas inscripto a ninguna actividad</p>"
         return
     }
-    
     document.getElementById("turnListBody").innerHTML = tBody
     document.getElementsByName("unsuscribe").forEach(button => {
         button.addEventListener('click', ()=>{
             let idTurno = button.id.replace("unsuscribe_","")
             Turno.getByID(idTurno).unsuscribe(user.id)
+            showTurnList(user)
         })
     })
 }
 
 async function showLogin(){
     await insertPartialInElement("./html/_login.html","appDiv")
-    addListenerToBotonSubmit()
+    addListenerToLoginButton()
 }
 
-function addListenerToBotonSubmit(){
+function addListenerToLoginButton(){
     let loginForm = document.getElementById("loginForm")
     loginForm.addEventListener('submit',(e) => { 
-        e.preventDefault(); 
+        e.preventDefault()
+
+        if (!e.target.inputNombre.value || !e.target.inputEdad.value || !e.target.inputDNI.value){
+            updateMessage({text:"Debe completar todos los datos para continuar",type:"error"})
+            return
+        }
+
         login({ nombre:e.target.inputNombre.value,
                 edad: e.target.inputEdad.value,
                 dni: e.target.inputDNI.value})
+        main()
     })
 }
 
 async function login(persona){
-    const user = await Persona.login(persona) 
-    setUserInSessionStorage(user)
-    showTurnPicker(user)
+    try{
+        const user = await Persona.login(persona)
+        setUserInSessionStorage(user)
+        showTurnPicker(user)
+    }
+    catch(e){
+        updateMessage({text:e, type:"error"})
+    }
 }
 
 function logOut(){
@@ -107,6 +84,8 @@ function logOut(){
 }
 
 async function showTurnPicker(user){
+    if (await userNotLoggedRedirect(user)) return   
+
     await insertPartialInElement("./html/_user.html","userDiv")
     document.getElementById("navbarDropdown").innerHTML = user.nombre
     document.getElementById("userLogOut").addEventListener('click',() => logOut())
@@ -133,6 +112,12 @@ async function showTurnPicker(user){
     {
         dropdownActividades.innerHTML += `<li><a class="dropdown-item" name="actividad" id="botonActividad_${actividades[i].id}">${actividades[i].nombre}</a></li>`
     }
+}
+
+async function userNotLoggedRedirect(user){
+    let isUserNull = (user == null) 
+    if (isUserNull) showLogin()
+    return isUserNull
 }
 
 async function insertPartialInElement(URL, elementID){
@@ -195,7 +180,7 @@ function AddListenersToActividades(){
                 }
             }
             dias.forEach(dia => {
-                divDias.innerHTML += `<button type="button" class="btn btn-primary" name="dia" id="boton_${dia}">${dia}</button>\n`
+                divDias.innerHTML += `<button type="button" class=" w-23 btn btn-primary mt-1 mx-1" name="dia" id="boton_${dia}">${dia}</button>`
             })
         })
     })
@@ -205,14 +190,14 @@ function addListenersToDias(){
     const dias = document.getElementsByName("dia")
     dias.forEach(dia =>{
         dia.addEventListener('click', () => {
-            updateMessage({text:"Seleccione una hora",
+            updateMessage({text:"Seleccione un horario",
                            type:"information"})
             let turnos = Turno.getByLindekDataItem(new DataItem(document.getElementById("dropdownMenuButton1").value),"Actividad")
             turnos = turnos.filter(turno => turno.dia == dia.innerHTML)
             let divHoras = document.getElementById("divHoras")
             divHoras.innerHTML =""
             turnos.forEach(turno =>{
-                divHoras.innerHTML += `<button type="button" class="btn btn-success" name="hora" id="turno_${turno.id}">${turno.hora}</button>`
+                divHoras.innerHTML += `<button type="button" class=" btn btn-success mt-1 mx-1" name="hora" id="turno_${turno.id}">${turno.hora}</button>`
             })
         })
     })
@@ -253,18 +238,15 @@ function horasEventListener(hora){
 
 function updateMessage({text, type}){
     if (type == "information") {
-        updateMessageInDiv({text: text, type:type})
+        updateMessageInP({text: text, type:type})
         return
     }
     updateMessageInAlert({text: text, type:type})
 }
 
-function updateMessageInDiv({text, type}){
-    const divAlert = document.getElementById("divAlert")
-    let cssClass
-    cssClass="alert alert-primary mt-3";
-    divAlert.className = cssClass
-    divAlert.innerHTML = text
+function updateMessageInP({text, type}){
+    const pAlert = document.getElementById("divAlert")
+    pAlert.innerHTML = text
 }
 
 function updateMessageInAlert({text, type}){
